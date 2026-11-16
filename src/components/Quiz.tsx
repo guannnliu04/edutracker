@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import type { DailySession } from "../types";
-import { getQuestion } from "../lib/session";
+import type { DailySession, QuestionMeta } from "../types";
 import { seededRng, shuffle } from "../lib/rng";
 import { MathText } from "./Math";
 
@@ -9,21 +8,24 @@ const LETTERS = ["A", "B", "C", "D"];
 
 interface Props {
   session: DailySession;
+  questions: Map<string, QuestionMeta>;
+  busy: boolean;
   onSelect: (questionId: string, optionId: string) => void;
   onUnsure: (questionId: string, unsure: boolean) => void;
   onSubmit: () => void;
 }
 
-export function Quiz({ session, onSelect, onUnsure, onSubmit }: Props) {
+export function Quiz({ session, questions, busy, onSelect, onUnsure, onSubmit }: Props) {
   const [index, setIndex] = useState(() => {
     const first = session.slots.findIndex((s) => !session.draft[s.questionId]?.selected);
     return first === -1 ? 0 : first;
   });
   const slot = session.slots[index];
-  const question = getQuestion(slot.questionId);
+  const question = questions.get(slot.questionId)!;
   const draft = session.draft[question.id];
   const answered = session.slots.filter((s) => session.draft[s.questionId]?.selected).length;
   const allAnswered = answered === session.slots.length;
+  const last = index === session.slots.length - 1;
 
   // 選項順序以「日期+題目」為種子打亂,重新整理後不變
   const options = useMemo(
@@ -82,16 +84,18 @@ export function Quiz({ session, onSelect, onUnsure, onSubmit }: Props) {
         <button className="btn ghost" disabled={index === 0} onClick={() => setIndex(index - 1)}>
           上一題
         </button>
-        {index < session.slots.length - 1 ? (
-          <button className="btn" onClick={() => setIndex(index + 1)}>下一題</button>
-        ) : (
-          <button className="btn primary" disabled={!allAnswered} onClick={onSubmit}>
-            {allAnswered ? "提交全部" : `還有 ${session.slots.length - answered} 題未答`}
+        {last ? (
+          <button className="btn primary" disabled={!allAnswered || busy} onClick={onSubmit}>
+            {busy ? "提交中…" : allAnswered ? "提交全部" : `還有 ${session.slots.length - answered} 題未答`}
           </button>
+        ) : (
+          <button className="btn" onClick={() => setIndex(index + 1)}>下一題</button>
         )}
       </div>
-      {index < session.slots.length - 1 && allAnswered && (
-        <button className="btn primary" onClick={onSubmit}>提交全部</button>
+      {!last && allAnswered && (
+        <button className="btn primary" disabled={busy} onClick={onSubmit}>
+          {busy ? "提交中…" : "提交全部"}
+        </button>
       )}
       <p className="hint">五題全部提交後,才會顯示答案與解析。</p>
     </div>

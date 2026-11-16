@@ -1,4 +1,6 @@
-import type { AppState, Question, SessionSlot } from "../types";
+import type { AppState, QuestionMeta, SessionSlot } from "../types";
+
+type Pickable = Pick<QuestionMeta, "id" | "kind" | "chapter" | "conceptId">;
 import { addDays } from "./date";
 import { dueReviews } from "./review";
 import { seededRng, shuffle } from "./rng";
@@ -9,7 +11,7 @@ import { seededRng, shuffle } from "./rng";
  */
 export function selectDaily(
   date: string,
-  bank: readonly Question[],
+  bank: readonly Pickable[],
   state: AppState,
 ): SessionSlot[] {
   const rng = seededRng(`slots:${date}`);
@@ -27,7 +29,7 @@ export function selectDaily(
     if (!a.correct) wrongCountByConcept.set(a.conceptId, (wrongCountByConcept.get(a.conceptId) ?? 0) + 1);
   }
 
-  const take = (q: Question | undefined, slot: SessionSlot["slot"], reviewId?: string): boolean => {
+  const take = (q: Pickable | undefined, slot: SessionSlot["slot"], reviewId?: string): boolean => {
     if (!q || picked.has(q.id)) return false;
     picked.add(q.id);
     slots.push({ questionId: q.id, slot, reviewId });

@@ -9,23 +9,53 @@ export const ERROR_TYPE_LABEL: Record<ErrorType, string> = {
   guess: "猜的／不會",
 };
 
-export interface Option {
+export interface OptionMeta {
   id: string; // 穩定 id,不隨顯示順序改變
   text: string;
+}
+
+export interface Option extends OptionMeta {
   isCorrect: boolean;
 }
 
-export interface Question {
+/** 前端拿到的題目:不含正確答案與解析(那些只能在提交後由伺服器回傳) */
+export interface QuestionMeta {
   id: string;
   kind: QuestionKind;
   chapter: number;
   conceptId: string;
   prompt: string;
-  options: Option[];
-  explanation: string; // 不可用「選項 A」這類位置用語,因為選項順序會被打亂
+  options: OptionMeta[];
   /** 'self-authored' = 自編題;只有取得原題並填入 sourceRef 才可標為 'past-homework' */
   origin: "self-authored" | "past-homework";
+}
+
+/** 完整題目(含答案),只存在於題庫檔、種子產生與本機示範模式 */
+export interface Question extends Omit<QuestionMeta, "options"> {
+  options: Option[];
+  explanation: string; // 不可用「選項 A」這類位置用語,因為選項順序會被打亂
   sourceRef?: string;
+}
+
+/** 提交後由伺服器回傳的逐題結果 */
+export interface ResultItem {
+  attemptId: string;
+  questionId: string;
+  selected: string;
+  correct: boolean;
+  unsure: boolean;
+  errorType?: ErrorType;
+  correctOptionId: string;
+  explanation: string;
+}
+
+export interface StudyTask {
+  id: string;
+  date: string;
+  title: string;
+  subject: string;
+  minutes: number;
+  done: boolean;
 }
 
 export interface Concept {
@@ -82,4 +112,5 @@ export interface AppState {
   sessions: DailySession[];
   attempts: Attempt[];
   reviews: ReviewItem[];
+  tasks: StudyTask[];
 }

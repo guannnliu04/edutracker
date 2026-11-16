@@ -1,7 +1,6 @@
 import type { AppState, Attempt, DailySession, ErrorType, Question } from "../types";
 import { scheduleReviews } from "./review";
 import { QUESTIONS } from "../data/questions";
-import { selectDaily } from "./selectDaily";
 
 const bankById = new Map(QUESTIONS.map((q) => [q.id, q]));
 export const getQuestion = (id: string): Question => {
@@ -9,16 +8,6 @@ export const getQuestion = (id: string): Question => {
   if (!q) throw new Error(`Unknown question: ${id}`);
   return q;
 };
-
-export function ensureSession(state: AppState, date: string): AppState {
-  if (state.sessions.some((s) => s.date === date)) return state;
-  const session: DailySession = {
-    date,
-    slots: selectDaily(date, QUESTIONS, state),
-    draft: {},
-  };
-  return { ...state, sessions: [...state.sessions, session] };
-}
 
 export function updateSession(
   state: AppState,

@@ -17,6 +17,7 @@ export const emptyState = (): AppState => ({
   sessions: [],
   attempts: [],
   reviews: [],
+  tasks: [],
 });
 
 export const localStorageAdapter: Storage = {

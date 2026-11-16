@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { emptyState } from "./storage";
-import { ensureSession, submitSession, updateSession, getQuestion } from "./session";
+import { submitSession, updateSession, getQuestion } from "./session";
+import { buildSession } from "./buildSession";
 import { addDays } from "./date";
 import { selectDaily } from "./selectDaily";
 import { QUESTIONS } from "../data/questions";
 import type { AppState } from "../types";
+
+const ensureSession = (state: AppState, date: string): AppState => ({
+  ...state,
+  sessions: [...state.sessions, buildSession(date, QUESTIONS, state)],
+});
 
 const answerAll = (state: AppState, date: string, pickWrong: boolean): AppState =>
   updateSession(state, date, (s) => ({

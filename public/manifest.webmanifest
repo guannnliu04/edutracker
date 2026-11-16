@@ -1,9 +1,15 @@
 {
   "name": "研究所線性代數每日測驗",
-  "short_name": "線代每日測驗",
-  "start_url": "/",
+  "short_name": "線代測驗",
+  "start_url": "/quiz",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#111827",
-  "theme_color": "#111827",
-  "lang": "zh-Hant"
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "zh-Hant",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
 }
