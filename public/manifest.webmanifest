@@ -1,0 +1,9 @@
+{
+  "name": "研究所線性代數每日測驗",
+  "short_name": "線代每日測驗",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "lang": "zh-Hant"
+}
