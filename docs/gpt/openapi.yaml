@@ -1,0 +1,106 @@
+openapi: 3.1.0
+info:
+  title: 線代每日測驗 - GPT 接口
+  description: 讓 ChatGPT 讀取我的學習狀況、並把練習結果記錄到我的測驗系統。
+  version: 1.0.0
+servers:
+  - url: https://la-daily-quiz.vercel.app
+paths:
+  /api/gpt/context:
+    get:
+      operationId: getStudyContext
+      summary: 取得今天該複習什麼、弱點觀念、最近的錯題
+      description: >
+        出題前一定要先呼叫。回傳 dueReviews(今天到期的複習,請針對這些觀念出「變式題」,
+        不要重出原題)、weakConcepts(弱點排行)、recentWrong(最近答錯的題目)、
+        preferredConceptIds(記錄時請優先使用的觀念 id)。
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: 學習狀況
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/gpt/record:
+    post:
+      operationId: recordPractice
+      summary: 記錄這一輪練習的作答結果
+      description: >
+        使用者「五題全部作答完、你批改並講解完」之後才呼叫一次,把整輪(通常 5 題)一起送出。
+        同一天同一題重複送出會被自動略過。格式不合會整批退回並說明哪一題哪個欄位有問題,
+        請依錯誤訊息修正後重送。
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PracticeRecord"
+      responses:
+        "200":
+          description: 已記錄
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  saved: { type: integer }
+                  duplicatesSkipped: { type: integer }
+        "400":
+          description: 格式錯誤(內容會說明哪一題哪個欄位)
+        "401":
+          description: 金鑰錯誤
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    PracticeRecord:
+      type: object
+      required: [items]
+      properties:
+        date:
+          type: string
+          description: 練習日期 YYYY-MM-DD,不填就是今天
+        items:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/PracticeItem"
+    PracticeItem:
+      type: object
+      required: [concept, prompt, myAnswer, correctAnswer, correct]
+      properties:
+        concept:
+          type: string
+          description: 觀念。優先使用 getStudyContext 回傳的 preferredConceptIds 裡的 id;都不合再用簡短中文名稱。
+        prompt:
+          type: string
+          description: 題目全文。數學式用 LaTeX 並以單個 $ 包住,例如 $\det A$。
+        options:
+          type: array
+          items: { type: string }
+          description: 選項文字(2~6 個,不含 A/B/C/D 字母)
+        myAnswer:
+          type: string
+          description: 使用者的答案,選擇題填字母 A/B/C/D
+        correctAnswer:
+          type: string
+          description: 正確答案,選擇題填字母 A/B/C/D
+        correct:
+          type: boolean
+          description: 使用者是否答對。必須與 myAnswer、correctAnswer 一致。
+        unsure:
+          type: boolean
+          description: 使用者作答時是否標示「不確定」
+        errorType:
+          type: string
+          enum: [concept, calculation, careless, guess]
+          description: 只有答錯才填。concept=觀念錯誤、calculation=計算錯誤、careless=粗心、guess=猜的/不會
+        explanation:
+          type: string
+          description: 簡短解析

@@ -1,5 +1,5 @@
 // 本機示範模式(只用於開發與測試;正式建置會被排除,題庫答案不會進入正式版 bundle)
-import type { AppState, DailySession, QuestionMeta, ResultItem } from "../types";
+import type { AppState, DailySession, PracticeInput, QuestionMeta, ResultItem } from "../types";
 import { QUESTIONS } from "../data/questions";
 import { emptyState, localStorageAdapter } from "../lib/storage";
 import { getQuestion, setErrorType, submitSession, updateSession } from "../lib/session";
@@ -72,6 +72,12 @@ export function createLocalBackend(): Backend {
     toggleTask: async (id, done) =>
       commit({ ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, done } : t)) }),
     deleteTask: async (id) => commit({ ...state, tasks: state.tasks.filter((t) => t.id !== id) }),
+    importPractice: async (logs: PracticeInput[]) => {
+      const seen = new Set(state.practice.map((p) => `${p.date}|${p.prompt}`));
+      const fresh = logs.filter((l) => !seen.has(`${l.date}|${l.prompt}`));
+      commit({ ...state, practice: [...state.practice, ...fresh.map((l) => ({ ...l, id: crypto.randomUUID() }))] });
+      return fresh.length;
+    },
     reset: async () => commit(emptyState()),
   };
 }

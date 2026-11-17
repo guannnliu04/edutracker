@@ -55,3 +55,32 @@ npm run test:db      # 資料庫權限與評分測試(需本機 postgresql-16 �
 - 所有使用者資料都以 RLS 限定只能讀寫自己的列;`anon` 角色沒有任何權限。
 - 題庫另有資料庫層檢查:每題恰有一個正確選項;標為「歷屆作業」必須附出處,否則一律是「自編題」。
 - 已登入的你本人仍可自行建立測驗並提交來看到答案 — 這是單人系統,不屬於防護範圍。
+
+## 6. 資料庫更新(第二批 SQL)
+
+已經建好專案的人,到 Supabase **SQL Editor** 依序再執行這兩個檔案(各開一個 New query):
+1. `supabase/migrations/0002_practice_logs.sql`(GPT 練習紀錄資料表)
+2. `supabase/migrations/0003_lock_function_execute.sql`(收緊函式權限,讓匿名者連呼叫都不行)
+
+## 7. 連接 ChatGPT
+
+兩種方式,不依賴彼此:
+
+### 方式 A:手動匯入(不需要 Actions,最簡單)
+GPT 練習完後輸出 JSON(格式見 App「匯入」頁的範例)→ 複製 → 貼到 App 的「匯入」頁 → 按「驗證並匯入」。
+
+### 方式 B:GPT 自動記錄(需要自訂 GPT 的 Actions 功能)
+1. 在 Vercel → Settings → Environment Variables 新增三個變數(名稱**不要**以 `VITE_` 開頭):
+   - `GPT_API_KEY`:自己產生一串至少 32 字的隨機字串(例如密碼管理員產生的)。**這串只貼在 Vercel 和 GPT 設定,不要貼到別處。**
+   - `OWNER_EMAIL`、`OWNER_PASSWORD`:你在 Supabase 建立的那組登入帳密。伺服器用它以「你的身分」存取資料,因此不需要放權限更大的 Supabase secret key。
+   - 三個都選 **Secret**,Environments 勾 Production。存好後 **Redeploy**。
+2. ChatGPT → 建立 GPT → 設定 → Actions → 建立新動作:
+   - Schema:貼 `docs/gpt/openapi.yaml` 全部內容
+   - Authentication:選 **API Key** → **Bearer** → 貼上同一串 `GPT_API_KEY`
+3. 指令欄位貼 `docs/gpt/GPT_INSTRUCTIONS.md`(把標示的地方換成你原本的規則)。
+4. GPT 分享設定選 **只有我**。
+
+### 注意
+- GPT 記錄的對錯是 GPT 自己判斷,不像 App 內五題由資料庫評分;計算題請在指令裡要求它用 Python 驗算。
+- `OWNER_PASSWORD` 放在 Vercel 環境變數代表:**Vercel 帳號被盜 = 你的資料被存取**,所以請替 Vercel、GitHub、Supabase 都開 2FA,並用強密碼。
+- 這個 API 沒有做請求頻率限制;`GPT_API_KEY` 一旦外流,對方可以寫入假的練習紀錄並讀取你的弱點與最近錯題。懷疑外流時到 Vercel 換一串新的並 Redeploy,GPT 那邊也同步更新。

@@ -31,6 +31,9 @@ grant execute on function auth.uid() to anon, authenticated;
 insert into auth.users values ('11111111-1111-1111-1111-111111111111'), ('22222222-2222-2222-2222-222222222222');
 SQL
 psql_q -f "$ROOT/supabase/migrations/0001_init.sql" >/dev/null || exit 1
+psql_q -f "$ROOT/supabase/migrations/0002_practice_logs.sql" >/dev/null || exit 1
+BEFORE=$(psql_q -c "set role anon" -c "select public.get_results('2026-01-01')" 2>&1)
+psql_q -f "$ROOT/supabase/migrations/0003_lock_function_execute.sql" >/dev/null || exit 1
 psql_q -f "$ROOT/supabase/seed.sql" >/dev/null || exit 1
 
 A=11111111-1111-1111-1111-111111111111
@@ -57,6 +60,11 @@ expect_err "讀不到 question_keys" "permission denied" as_user $A "select * fr
 expect_err "不能直接寫 attempts" "permission denied" as_user $A "insert into public.attempts (date,question_id,concept_id,slot,selected,correct) values ('$D1','b01','x','basic','o1',true)"
 expect_err "不能直接寫 reviews" "permission denied" as_user $A "insert into public.reviews (origin_question_id,concept_id,due_date,stage) values ('b01','x','$D1',1)"
 expect_err "不能自填 submitted_at" "permission denied" as_user $A "insert into public.sessions (date,slots,submitted_at) values ('$D1','[]',now())"
+
+expect_err "anon 不能執行評分/解析函式" "permission denied for function" as_anon "select public.get_results('$D1')"
+expect_err "anon 不能呼叫 submit_session" "permission denied for function" as_anon "select public.submit_session('$D1')"
+expect_err "anon 不能呼叫 get_key" "permission denied for function" as_anon "select public.get_key('b01')"
+echo "  (收緊前 anon 呼叫結果:$(echo "$BEFORE" | head -1))"
 
 echo "提交流程"
 as_user $A "insert into public.sessions (date,slots,draft) values ('$D1','$SLOTS','$PARTIAL')" >/dev/null
@@ -89,6 +97,23 @@ RID=$(as_user $A "select id from public.reviews where concept_id = 'linear-syste
 as_user $A "insert into public.sessions (date,slots,draft) values ('$D2','[{\"questionId\":\"b01\",\"slot\":\"review\",\"reviewId\":\"$RID\"}]','{\"b01\":{\"selected\":\"o1\",\"unsure\":false}}')" >/dev/null
 expect_eq  "答對複習題 → 提交成功" 1 as_user $A "select jsonb_array_length(public.submit_session('$D2'))"
 expect_eq  "該複習標記完成,不新增排程" "1|12" as_user $A "select (select count(*) from public.reviews where id = '$RID' and done) || '|' || (select count(*) from public.reviews)"
+
+echo "GPT 練習紀錄"
+PL="insert into public.practice_logs (date,concept,prompt,my_answer,correct_answer,correct,unsure,error_type) values"
+expect_err "anon 不能讀練習紀錄" "permission denied" as_anon "select * from public.practice_logs"
+expect_err "anon 不能寫練習紀錄" "permission denied" as_anon "$PL ('$D1','c','p','A','B',false,false,null)"
+as_user $A "$PL ('$D1','eigen-basic','題目一','C','B',false,true,'concept')" >/dev/null
+expect_eq  "登入者可寫入並讀回自己的紀錄" 1 as_user $A "select count(*) from public.practice_logs"
+expect_err "同一天同一題重複寫入被擋(唯一限制)" "duplicate key" as_user $A "$PL ('$D1','eigen-basic','題目一','C','B',false,false,null)"
+expect_eq  "用 ON CONFLICT DO NOTHING 重複匯入不會新增" 0 as_user $A "with i as ($PL ('$D1','x','題目一','C','B',false,false,null) on conflict (user_id,date,prompt_hash) do nothing returning 1) select count(*) from i"
+expect_eq  "B 看不到 A 的練習紀錄" 0 as_user $B "select count(*) from public.practice_logs"
+expect_err "不能指定 user_id 替別人寫入(欄位權限先擋)" "permission denied" as_user $A "insert into public.practice_logs (user_id,date,concept,prompt,my_answer,correct_answer,correct) values ('$B','$D1','c','別人','A','B',false)"
+expect_err "錯誤類型必須合法" "violates check constraint" as_user $A "$PL ('$D1','c','p2','A','B',false,false,'lazy')"
+expect_err "題目不可為空" "violates check constraint" as_user $A "$PL ('$D1','c','','A','B',false,false,null)"
+expect_eq  "只能改錯誤類型" 1 as_user $A "with u as (update public.practice_logs set error_type = 'careless' returning 1) select count(*) from u"
+expect_err "不能改對錯(欄位權限)" "permission denied" as_user $A "update public.practice_logs set correct = true"
+expect_eq  "B 刪不到 A 的紀錄" 0 as_user $B "with d as (delete from public.practice_logs returning 1) select count(*) from d"
+expect_eq  "A 可刪自己的紀錄" 1 as_user $A "with d as (delete from public.practice_logs returning 1) select count(*) from d"
 
 echo "題庫完整性(以管理者身分)"
 expect_err "正確選項必須存在於選項中" "not an option" as_admin "update public.question_keys set correct_option_id = 'zzz' where question_id = 'b01'"

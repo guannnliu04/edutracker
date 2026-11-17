@@ -5,6 +5,7 @@ import { conceptName } from "../data/concepts";
 import { addDays } from "../lib/date";
 import { dueReviews } from "../lib/review";
 import { conceptStats, weekSummary } from "../lib/weakness";
+import { practiceAsAttempts } from "../lib/practice";
 import type { QuestionKey } from "../backend/types";
 import { MathText } from "./Math";
 
@@ -19,11 +20,13 @@ export function Insights({ state, questions, today, getKey }: Props) {
   const [keys, setKeys] = useState<Record<string, QuestionKey>>({});
   const [open, setOpen] = useState<string | null>(null);
 
-  const total = state.attempts.length;
-  const rate = total ? Math.round((state.attempts.filter((a) => a.correct).length / total) * 100) : 0;
+  // App 內五題 + 你從 ChatGPT 匯入的練習,一起算
+  const all = [...state.attempts, ...practiceAsAttempts(state.practice)];
+  const total = all.length;
+  const rate = total ? Math.round((all.filter((a) => a.correct).length / total) * 100) : 0;
   const due = dueReviews(state.reviews, today).length;
-  const week = weekSummary(state.attempts, addDays(today, -6));
-  const weak = conceptStats(state.attempts).slice(0, 10);
+  const week = weekSummary(all, addDays(today, -6));
+  const weak = conceptStats(all).slice(0, 10);
   const wrong = state.attempts.filter((a) => !a.correct).sort((a, b) => b.date.localeCompare(a.date));
   const pending = [...state.reviews].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
@@ -119,6 +122,30 @@ export function Insights({ state, questions, today, getKey }: Props) {
           </div>
         );
       })}
+
+      {state.practice.some((p) => !p.correct) && (
+        <>
+          <h2>ChatGPT 練習錯題</h2>
+          {[...state.practice]
+            .filter((p) => !p.correct)
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .map((p) => (
+              <div key={p.id} className="card">
+                <div className="tags">
+                  <span className="tag">{p.date}</span>
+                  <span className="tag">{conceptName(p.concept)}</span>
+                  {p.errorType && <span className="tag muted">{ERROR_TYPE_LABEL[p.errorType]}</span>}
+                  {p.unsure && <span className="tag muted">不確定</span>}
+                </div>
+                <p className="prompt small"><MathText text={p.prompt} /></p>
+                <div className="explain">
+                  <div>你的答案:{p.myAnswer}　正解:{p.correctAnswer}</div>
+                  {p.explanation && <div style={{ marginTop: 8 }}><MathText text={p.explanation} /></div>}
+                </div>
+              </div>
+            ))}
+        </>
+      )}
 
       {pending.length > 0 && (
         <>

@@ -9,11 +9,13 @@ import { Results } from "./components/Results";
 import { Insights } from "./components/Insights";
 import { Plan } from "./components/Plan";
 import { Settings } from "./components/Settings";
+import { Import } from "./components/Import";
+import { parsePracticeRecord } from "../shared/practice";
 import { Login } from "./components/Login";
 
-type Tab = "quiz" | "plan" | "wrong" | "settings";
-const TAB_PATH: Record<Tab, string> = { quiz: "/quiz", plan: "/plan", wrong: "/wrong", settings: "/settings" };
-const TAB_LABEL: Record<Tab, string> = { quiz: "今日測驗", plan: "讀書計畫", wrong: "錯題與弱點", settings: "設定" };
+type Tab = "quiz" | "plan" | "wrong" | "import" | "settings";
+const TAB_PATH: Record<Tab, string> = { quiz: "/quiz", plan: "/plan", wrong: "/wrong", import: "/import", settings: "/settings" };
+const TAB_LABEL: Record<Tab, string> = { quiz: "測驗", plan: "計畫", wrong: "弱點", import: "匯入", settings: "設定" };
 
 /** 通知連結 /quiz 直接進當天測驗;/ 也是測驗 */
 const tabFromPath = (): Tab =>
@@ -215,6 +217,19 @@ export function App() {
 
         {tab === "wrong" && (
           <Insights state={state} questions={questions} today={today} getKey={(id) => backend.getKey(id)} />
+        )}
+
+        {tab === "import" && (
+          <Import
+            today={today}
+            onImport={async (json) => {
+              const parsed = parsePracticeRecord(json, today);
+              if (!parsed.ok) throw new Error(parsed.error);
+              const n = await backend.importPractice(parsed.logs);
+              setState(await backend.loadState(today));
+              return n;
+            }}
+          />
         )}
 
         {tab === "settings" && (

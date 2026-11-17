@@ -3,6 +3,7 @@ import type {
   DailySession,
   DraftAnswer,
   ErrorType,
+  PracticeInput,
   QuestionMeta,
   ResultItem,
   StudyTask,
@@ -34,6 +35,8 @@ export interface Backend {
   addTask(task: Pick<StudyTask, "date" | "title" | "subject" | "minutes">): Promise<void>;
   toggleTask(id: string, done: boolean): Promise<void>;
   deleteTask(id: string): Promise<void>;
+  /** 匯入 GPT 練習紀錄;回傳實際新增的筆數(重複的會略過) */
+  importPractice(logs: PracticeInput[]): Promise<number>;
   /** 僅本機示範模式支援 */
   reset?(): Promise<void>;
 }

@@ -5,6 +5,8 @@ import type {
   DailySession,
   DraftAnswer,
   ErrorType,
+  PracticeInput,
+  PracticeLog,
   QuestionMeta,
   ResultItem,
   ReviewItem,
@@ -68,14 +70,15 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async loadState(today) {
       const since = addDays(today, -14);
-      const [settings, sessions, attempts, reviews, tasks] = await Promise.all([
+      const [settings, sessions, attempts, reviews, tasks, practice] = await Promise.all([
         sb.from("settings").select("current_chapter").maybeSingle(),
         sb.from("sessions").select("date, slots, draft, submitted_at").gte("date", since),
         sb.from("attempts").select("*").order("date"),
         sb.from("reviews").select("*").eq("done", false),
         sb.from("study_tasks").select("*").eq("date", today).order("created_at"),
+        sb.from("practice_logs").select("*").order("date"),
       ]);
-      for (const r of [settings, sessions, attempts, reviews, tasks]) fail(r.error);
+      for (const r of [settings, sessions, attempts, reviews, tasks, practice]) fail(r.error);
 
       const state: AppState = {
         ...emptyState(),
@@ -112,6 +115,21 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
           }),
         ),
         tasks: (tasks.data ?? []) as StudyTask[],
+        practice: (practice.data ?? []).map(
+          (p): PracticeLog => ({
+            id: p.id,
+            date: p.date,
+            concept: p.concept,
+            prompt: p.prompt,
+            options: p.options ?? undefined,
+            myAnswer: p.my_answer,
+            correctAnswer: p.correct_answer,
+            correct: p.correct,
+            unsure: p.unsure,
+            errorType: p.error_type ?? undefined,
+            explanation: p.explanation ?? undefined,
+          }),
+        ),
       };
       return state;
     },
@@ -162,6 +180,27 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         const { error } = await sb.from("settings").insert({ current_chapter: chapter });
         fail(error);
       }
+    },
+
+    async importPractice(logs: PracticeInput[]) {
+      const rows = logs.map((l) => ({
+        date: l.date,
+        concept: l.concept,
+        prompt: l.prompt,
+        options: l.options ?? null,
+        my_answer: l.myAnswer,
+        correct_answer: l.correctAnswer,
+        correct: l.correct,
+        unsure: l.unsure,
+        error_type: l.errorType ?? null,
+        explanation: l.explanation ?? null,
+      }));
+      const { data, error } = await sb
+        .from("practice_logs")
+        .upsert(rows, { onConflict: "user_id,date,prompt_hash", ignoreDuplicates: true })
+        .select("id");
+      fail(error);
+      return data?.length ?? 0;
     },
 
     async addTask(task) {

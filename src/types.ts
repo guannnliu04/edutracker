@@ -1,3 +1,6 @@
+import type { PracticeInput } from "../shared/practice";
+export type { PracticeInput };
+
 export type QuestionKind = "basic" | "chapter" | "homework";
 export type Slot = "review" | "basic" | "chapter" | "homework";
 export type ErrorType = "concept" | "calculation" | "careless" | "guess";
@@ -47,6 +50,11 @@ export interface ResultItem {
   errorType?: ErrorType;
   correctOptionId: string;
   explanation: string;
+}
+
+/** ChatGPT 出題、你在 ChatGPT 作答後匯入的練習紀錄(對錯由 GPT 判定) */
+export interface PracticeLog extends PracticeInput {
+  id: string;
 }
 
 export interface StudyTask {
@@ -113,4 +121,5 @@ export interface AppState {
   attempts: Attempt[];
   reviews: ReviewItem[];
   tasks: StudyTask[];
+  practice: PracticeLog[];
 }

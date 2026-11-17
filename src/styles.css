@@ -78,3 +78,6 @@ input[type="text"], input[type="email"], input[type="password"], input:not([type
 .bar.big { height: 12px; margin-top: 14px; }
 .weak { margin-bottom: 12px; } .weakhead { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
 .weakhead .hint { margin: 0; text-align: right; }
+textarea { width: 100%; font: 14px/1.5 ui-monospace, Menlo, monospace; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; resize: vertical; }
+details summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; margin: 0; }
