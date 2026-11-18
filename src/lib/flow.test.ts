@@ -42,6 +42,37 @@ describe("每日選題", () => {
   });
 });
 
+describe("出題範圍(只出已讀到的章節)", () => {
+  const stateAt = (currentChapter: number): AppState => ({ ...emptyState(), settings: { currentChapter } });
+  const chapterOf = (id: string) => QUESTIONS.find((q) => q.id === id)!.chapter;
+
+  it.each([3, 5, 7, 8])("讀到第 %i 章:五題都不超出範圍,且不重複", (ch) => {
+    for (const d of ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20"]) {
+      const slots = selectDaily(d, QUESTIONS, stateAt(ch));
+      expect(slots.every((s) => chapterOf(s.questionId) <= ch)).toBe(true);
+      expect(new Set(slots.map((s) => s.questionId)).size).toBe(slots.length);
+    }
+  });
+
+  it("範圍內題目不夠時,寧可少出,也不出還沒讀的內容", () => {
+    const slots = selectDaily("2026-11-16", QUESTIONS, stateAt(1));
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots.length).toBeLessThan(5);
+    expect(slots.every((s) => chapterOf(s.questionId) <= 1)).toBe(true);
+  });
+
+  it("複習題的變式也只從範圍內挑", () => {
+    // 先在第 8 章答錯 inverse 觀念的題,再把進度退到第 3 章:變式不可出第 8 章的題
+    const st: AppState = {
+      ...stateAt(3),
+      reviews: [{ id: "r1", originQuestionId: "b09", conceptId: "symmetric-spectral", dueDate: "2026-11-16", stage: 1, done: false }],
+    };
+    const slots = selectDaily("2026-11-16", QUESTIONS, st);
+    const review = slots.find((s) => s.slot === "review");
+    expect(review === undefined || review.questionId === "b09" || chapterOf(review.questionId) <= 3).toBe(true);
+  });
+});
+
 describe("作答與複習", () => {
   it("未全部作答不能提交", () => {
     const d = "2026-11-16";
@@ -54,8 +85,11 @@ describe("作答與複習", () => {
     let s = answerAll(ensureSession(emptyState(), d), d, true);
     s = submitSession(s, d, "now");
     expect(s.attempts.every((a) => !a.correct)).toBe(true);
-    const stages = s.reviews.filter((r) => r.originQuestionId === s.attempts[0].questionId).map((r) => r.stage);
-    expect(stages.sort()).toEqual([1, 3, 7]);
+    // 同一觀念只保留最新一組排程,所以以「觀念」為單位檢查,每個答錯的觀念都有且只有 1/3/7 這一組
+    for (const concept of new Set(s.attempts.map((a) => a.conceptId))) {
+      const stages = s.reviews.filter((r) => r.conceptId === concept).map((r) => r.stage);
+      expect(stages.sort()).toEqual([1, 3, 7]);
+    }
 
     const next = addDays(d, 1);
     const slots = selectDaily(next, QUESTIONS, s);
